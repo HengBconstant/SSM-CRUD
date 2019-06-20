@@ -9,57 +9,114 @@
 		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
 		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
 	<!-- 加载db数据文件 -->
-	<context:property-placeholder location="classpath:db.properties"/>
+	<context:property-placeholder
+		location="classpath:db.properties" />
 	<context:component-scan base-package="com.sc">
-		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+		<context:exclude-filter type="annotation"
+			expression="org.springframework.stereotype.Controller" />
 	</context:component-scan>
 	<!-- 数据源，事务控制 -->
-	<bean name="pooledDataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+	<bean name="pooledDataSource"
+		class="com.mchange.v2.c3p0.ComboPooledDataSource">
 		<property name="jdbcUrl" value="${jdbc.jdbcUrl}"></property>
 		<property name="driverClass" value="${jdbc.driverClass}"></property>
 		<property name="user" value="${jdbc.user}"></property>
 		<property name="password" value="${jdbc.password}"></property>
 	</bean>
-	
+
 	<!-- 配置和mybaties的整合 -->
-	<bean name="sqlSessionFactoryBean" class="org.mybatis.spring.SqlSessionFactoryBean">
-		<property name="configLocation" value="classpath:mybatis-config.xml"></property>
+	<bean name="sqlSessionFactoryBean"
+		class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="configLocation"
+			value="classpath:mybatis-config.xml"></property>
 		<property name="dataSource" ref="pooledDataSource"></property>
 		<!-- 指定mybaties ， mapper文件的位置 -->
-		<property name="mapperLocations" value="classpath:mapper/*.xml"></property>
+		<property name="mapperLocations"
+			value="classpath:mapper/*.xml"></property>
 	</bean>
-	
-	<!-- 配置扫瞄器  将mybatis接口的实现加入到ioc中 -->
+
+	<!-- 配置扫瞄器 将mybatis接口的实现加入到ioc中 -->
 	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
 		<!-- 扫描所有dao接口的实现，加入到ioc容器中 -->
 		<property name="basePackage" value="com.sc.crud.dao"></property>
 	</bean>
-	<bean name="sqlsession" class="org.mybatis.spring.SqlSessionTemplate">
-		<constructor-arg name="sqlSessionFactory" ref="sqlSessionFactoryBean"></constructor-arg>
+	<bean name="sqlsession"
+		class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg name="sqlSessionFactory"
+			ref="sqlSessionFactoryBean"></constructor-arg>
 		<constructor-arg name="executorType" value="BATCH"></constructor-arg>
 	</bean>
-	
+
 	<!-- 事务 -->
-	<bean name="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+	<bean name="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
 		<!-- 控制住数据源 -->
 		<property name="dataSource" ref="pooledDataSource"></property>
 	</bean>
-	<!-- 开启基于注解的事务，使用xml配置的事务（必要主要的使用配置） -->
+	<!-- 开启基于注解的事务，使用xml配置的事务（主要的使用配置） -->
 	<aop:config>
 		<!-- 切入点表达式 -->
-		<aop:pointcut expression="execution(* com.sc.crud.service..*(..))" id="txPoint"/>
+		<aop:pointcut
+			expression="execution(* com.sc.crud.service..*(..))" id="txPoint" />
 		<!-- 配置事务增强 -->
-		<aop:advisor advice-ref="txAdvice" pointcut-ref="txPoint"/>
-	</aop:config> 
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="txPoint" />
+	</aop:config>
+	<aop:aspectj-autoproxy  proxy-target-class="true"/>
 	<!-- 配置事务如何切入 -->
-	<tx:advice id="txAdvice" transaction-manager="transactionManager"> 
+	<tx:advice id="txAdvice"
+		transaction-manager="transactionManager">
 		<tx:attributes>
 			<!-- 所有方法都是事务 -->
-			<tx:method name="*"/>
+			<tx:method name="*" />
 			<!-- 以get开始的多有方法 -->
-			<tx:method name="get*" read-only="true"/>
+			<tx:method name="get*" read-only="true" />
 		</tx:attributes>
 	</tx:advice>
-	
+
 	<!-- spring配置核心点 (数据源/mybatis整合/事务) -->
+	<!-- 以下为shiro -->
+	<bean id="shiroFilter"
+		class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+		<property name="securityManager" ref="securityManager" />
+		<property name="loginUrl" value="/login.jsp" />
+		<property name="successUrl" value="/index.jsp" />
+		<property name="unauthorizedUrl" value="/errorLogin.jsp" />
+		<property name="filterChainDefinitions">
+			<value>
+				/login.jsp = anon
+				/shiro/login = anon
+				/logout = logout
+				
+				/adminRole.jsp = roles[admin]
+				/userRole.jsp = roles[user]
+				/** = authc
+			</value>
+		</property>
+	</bean>
+	<!--  securityManager  -->
+	<bean id="securityManager"
+		class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+		<property name="realm" ref="myRealm" />
+		<property name="cacheManager" ref="cacheManager"></property>
+	</bean>
+	<!-- 配置在spring ioc容器中shiro bean的生命周期方法 -->
+	<bean id="lifecycleBeanPostProcessor"
+		class="org.apache.shiro.spring.LifecycleBeanPostProcessor" />
+
+	<bean id="myRealm" class="com.sc.crud.utils.shiroRealm">
+	</bean>
+	<!-- 可以使用shiro的注解 在 spring配置的bean上 -->
+	<bean
+		class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
+		depends-on="lifecycleBeanPostProcessor" >
+		<property name="proxyTargetClass" value="true"/>
+	</bean>	
+	<bean
+		class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+		<property name="securityManager" ref="securityManager" />
+	</bean>
+	<bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+		<property name="cacheManagerConfigFile" value="classpath:ehcache.xml"></property>
+	</bean>
+	
 </beans>

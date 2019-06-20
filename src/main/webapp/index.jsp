@@ -1,6 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
 	pageEncoding="UTF-8"%>
 <%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>	
+<%@taglib uri="http://shiro.apache.org/tags" prefix="shiro"%>
 <!DOCTYPE html>
 <html>
 <head>
@@ -21,7 +22,14 @@
 	type="text/javascript"></script>
 </head>
 <body>
-${APP_PATH }
+欢迎老板：<shiro:principal></shiro:principal>
+注销用户登陆：<a href="${APP_PATH }/logout">点我</a><br>
+<shiro:hasRole name="admin">
+	<a href="adminRole.jsp">进入admin页面</a><br>
+</shiro:hasRole>
+<shiro:hasRole name="user">
+	<a href="userRole.jsp">进入user页面</a>
+</shiro:hasRole>
 <!-- 添加员工的模态框 -->
 <div class="modal fade" id="empAddModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
   <div class="modal-dialog" role="document">
